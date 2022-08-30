@@ -36,11 +36,14 @@ func NewArrayListOf[T any](ts []T) *ArrayList[T] {
 }
 
 func (a *ArrayList[T]) Get(index int) (t T, e error) {
-	l := a.Len()
-	if index < 0 || index >= l {
-		return t, newErrIndexOutOfRange(l, index)
+	if !a.ok(index) {
+		return t, newErrIndexOutOfRange(a.Len(), index)
 	}
 	return a.vals[index], e
+}
+
+func (a *ArrayList[T]) ok(index int) bool {
+	return 0 <= index && index < a.Len()
 }
 
 // Append 往ArrayList里追加数据
@@ -53,46 +56,32 @@ func (a *ArrayList[T]) Append(ts ...T) error {
 // 当index等于ArrayList长度等同于append
 func (a *ArrayList[T]) Add(index int, t T) error {
 	if index < 0 || index > len(a.vals) {
-		return newErrIndexOutOfRange(len(a.vals), index)
+		return newErrIndexOutOfRange(a.Len(), index)
 	}
-	a.vals = append(a.vals, t)
-	copy(a.vals[index+1:], a.vals[index:])
-	a.vals[index] = t
+	a.vals = append(a.vals[:index], append([]T{t}, a.vals[index:]...)...)
 	return nil
 }
 
 // Set 设置ArrayList里index位置的值为t
 func (a *ArrayList[T]) Set(index int, t T) error {
-	length := len(a.vals)
-	if index >= length || index < 0 {
-		return newErrIndexOutOfRange(length, index)
+	if !a.ok(index) {
+		return newErrIndexOutOfRange(a.Len(), index)
 	}
 	a.vals[index] = t
 	return nil
 }
 
 func (a *ArrayList[T]) Delete(index int) (T, error) {
-	length := len(a.vals)
-	if index < 0 || index >= length {
+	if !a.ok(index) {
 		var zero T
-		return zero, newErrIndexOutOfRange(length, index)
+		return zero, newErrIndexOutOfRange(a.Len(), index)
 	}
-	j := 0
 	res := a.vals[index]
-	for i, v := range a.vals {
-		if i != index {
-			a.vals[j] = v
-			j++
-		}
-	}
-	a.vals = a.vals[:j]
+	a.vals = append(a.vals[:index], a.vals[index+1:]...)
 	return res, nil
 }
 
 func (a *ArrayList[T]) Len() int {
-	if a == nil {
-		return 0
-	}
 	return len(a.vals)
 }
 
@@ -101,8 +90,8 @@ func (a *ArrayList[T]) Cap() int {
 }
 
 func (a *ArrayList[T]) Range(fn func(index int, t T) error) error {
-	for key, value := range a.vals {
-		e := fn(key, value)
+	for index, value := range a.vals {
+		e := fn(index, value)
 		if e != nil {
 			return e
 		}
@@ -111,7 +100,5 @@ func (a *ArrayList[T]) Range(fn func(index int, t T) error) error {
 }
 
 func (a *ArrayList[T]) AsSlice() []T {
-	slice := make([]T, len(a.vals))
-	copy(slice, a.vals)
-	return slice
+	return append([]T{}, a.vals...)
 }
